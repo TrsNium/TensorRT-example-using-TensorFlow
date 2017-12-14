@@ -128,7 +128,7 @@ class model():
         context = engine.create_execution_context()
 
         #データ読み込み(１件のみ)
-        img, label = MNIST_DATASETS.test.next_batch(1)
+        img, label = self.data_set.test.next_batch(1)
         img = img[0].astype(np.float32)
         label = label[0]
 
