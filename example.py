@@ -75,7 +75,6 @@ class model():
             saver = tf.train.Saver(tf.global_variables())
             #tensorBoard用のfile writer
             s_writer = tf.summary.FileWriter(logidir=logdir, graph=sess.graph_def())
-            #summary
             summary = tf.summary.merge_all()
 
             for itr, (images_feed, labels_feed) in enumerate(self.data_set.train.next_batch(BATCH_SIZE)):
@@ -88,12 +87,10 @@ class model():
                 loss_, summary_, _ = sess.run([self.loss, summary, self.optimizer], feed_dict)
                 
                 if itr%10 == 0:
-                    #log
                     print(itr, ":  ", loss_)
                     s_writer.add_summary(summary_, itr)
                 
                 if itr%50 == 0:
-                    #modelのセーブ
                     saver.save(sess, os.path.join(save_dir, "model.ckpt"))
 
                 if itr+1 == MAX_ITERATION:
@@ -120,13 +117,12 @@ class model():
 
         # uff parserを作り，モデルの入出力に関する情報を加える
         parser = uffparser.create_uff_parser()
-        # おそらく (channel, im_size, im_size)
+        # (channel, im_size, im_size)
         parser.register_input("Placeholder", (1,28,28), 0)
         parser.register_output("inference/softmax")
 
         # utility関数を用いてエンジンを作る(最後の引数はmax batch size と max workspace size)
         engine = trt.utils.uff_to_trt_engine(G_LOGGER, uff_model, parser, MAX_BATCH_SIZE, MAX_WORKSPACE_SIZE)
-
         parser.destroy()
 
         return engine
@@ -171,7 +167,7 @@ class model():
         context.enqueue(1, bindings, stream.handle, None)
         #結果のコピー
         cuda.memcpy_dtoh_async(output, d_output, stream)
-        #スレッドの同期?
+        #スレッドの同期
         stream.synchronize()
 
         print("Test Case: " + str(label))
