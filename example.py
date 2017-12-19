@@ -13,6 +13,8 @@ import os
 
 import uff
 
+import argparse
+
 #log用のファイルとモデルセーブ用のディレクトリを作る
 log_dir = "./logs"
 save_dir = "./saves"
@@ -23,12 +25,17 @@ def check_dir(path):
 check_dir(log_dir)
 check_dir(save_dir)
 
+# training option
 MAX_ITERATION = 19000
 BATCH_SIZE = 125
 
+# inference option
+MAX_BATCH_SIZE = 1
+MAX_WORKSPACE_SIZE = 1<<20
+
 class model():
     def __init__(self):
-        self.data_set = input_data.read_data_sets('/tmp/tensorflow/mnist/input_data')
+        self.data_set = input_data.read_data_sets('MNIST_data', one_hot=True)
 
         #LeNet でテスト
         self.inputs = tf.placeholder(tf.float32, [None, 28, 28, 1], name="Placeholder")
@@ -73,7 +80,7 @@ class model():
 
             for itr, (images_feed, labels_feed) in enumerate(self.data_set.train.next_batch(BATCH_SIZE)):
                 feed_dict = {
-                    self.inputs: images_feed,
+                    self.inputs: images_feed.reshape(-1, 28, 28, 1),
                     self.labels: labels_feed
                 }
                 
@@ -113,11 +120,12 @@ class model():
 
         # uff parserを作り，モデルの入出力に関する情報を加える
         parser = uffparser.create_uff_parser()
+        # おそらく (channel, im_size, im_size)
         parser.register_input("Placeholder", (1,28,28), 0)
         parser.register_output("inference/softmax")
 
-        # utility関数を用いてエンジンを作る(最後の引数はmax batch size and max workspace size?)
-        engine = trt.utils.uff_to_trt_engine(G_LOGGER, uff_model, parser, 1, 1 << 20)
+        # utility関数を用いてエンジンを作る(最後の引数はmax batch size と max workspace size)
+        engine = trt.utils.uff_to_trt_engine(G_LOGGER, uff_model, parser, MAX_BATCH_SIZE, MAX_WORKSPACE_SIZE)
 
         parser.destroy()
 
@@ -173,3 +181,10 @@ class model():
         engine.destroy()
         new_engine.destroy()
         runtime.destroy()
+
+
+model_ = model()
+# モデルのトレーニング
+model_.fit()
+# 学習済みモデルを使ってインファレンス
+model.inference()
