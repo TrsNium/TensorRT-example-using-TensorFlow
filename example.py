@@ -91,20 +91,19 @@ class model():
 
                 if itr+1 == MAX_ITERATION:
                     break
+    
+    def mk_TensorRT_engine(self):
+        #モデルがない場合学習をさせる
+        if not tf.train.get_checkpoint_state(os.path.join(save_dir, "model.ckpt")):
+            self.fit()
 
-    def inference(self):
-        
-        #モデルの読み込み
-        with tf.Session(config=config) as sess:
+        #学習済みモデルを読み込む
+        with tf.Session() as sess:
             saver = tf.train.Saver(tf.global_variables())
-            saver.restore(sess, 'save/model.ckpt')
-
+            saver.restore(sess, "save/model.ckpt")
             graph_def = sess.graph_def()
-            frozen_graph = tf.graph_util.convert_variables_to_constants(sess,
-                                                                    graph_def,
-                                                                    ["inference/softmax"])
-
-            tf_model = tf.graph_util.remove_training_nodes(frozen_graph)
+            frozen_graph = tf.graph_util.convert_variables_to_constants(sess, graph_def, ["inference/softmax"])
+            tf_model _ tf.graph_util.remove_training_nodes(frozen_graph)
 
         # Tensorflowのモデル形式からUFFへ変換
         uff_model = uff.from_tensorflow(tf_model, ["inference/softmax"])
@@ -120,8 +119,21 @@ class model():
         # utility関数を用いてエンジンを作る(最後の引数はmax batch size and max workspace size?)
         engine = trt.utils.uff_to_trt_engine(G_LOGGER, uff_model, parser, 1, 1 << 20)
 
-        # parserは使わないので解放
         parser.destroy()
+
+        return engine
+
+    def inference(self):
+        # TensorRT EngineのためのUFF Streamを作る
+        G_LOGGER = trt.infer.ConsoleLogger(trt.infer.LogSeverity.ERROR)
+
+        if not os.path.exists('./tf_mnist.engine'):
+            # engine の作成と保存
+            engine = self.mk_TensorRT_engine()
+            trt.utils.write_engine_to_file("./tf_mnist.engine", engine.serialize())
+        else:
+            # engine の読み込み
+            engine = trt.utils.load_engine(G_LOGGER, "./tf_mnist.engine")
 
         #runtime とengineのcontextを作成
         runtime = trt.infer.create_infer_runtime(G_LOGGER)
@@ -156,12 +168,6 @@ class model():
 
         print("Test Case: " + str(label))
         print ("Prediction: " + str(np.argmax(output)))
-
-        # Engineのセーブ
-        #trt.utils.write_engine_to_file("./tf_mnist.engine", engine.serialize())
-
-        # Engineの読み込み
-        #engine = trt.utils.load_engine(G_LOGGER, "./tf_mnist.engine")
 
         context.destroy()
         engine.destroy()
