@@ -107,7 +107,7 @@ class model():
             saver.restore(sess, "save/model.ckpt")
             graph_def = sess.graph_def()
             frozen_graph = tf.graph_util.convert_variables_to_constants(sess, graph_def, ["inference/softmax"])
-            tf_model _ tf.graph_util.remove_training_nodes(frozen_graph)
+            tf_model = tf.graph_util.remove_training_nodes(frozen_graph)
 
         # Tensorflowのモデル形式からUFFへ変換
         uff_model = uff.from_tensorflow(tf_model, ["inference/softmax"])
